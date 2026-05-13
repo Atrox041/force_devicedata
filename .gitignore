@@ -1,0 +1,35 @@
+# Dependencies
+**/node_modules/
+
+# Next.js
+**/.next/
+**/out/
+**/.turbo/
+
+# Build outputs
+**/dist/
+**/build/
+**/coverage/
+
+# Logs
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env files (never commit secrets)
+.env
+.env.*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Uploads / runtime data
+uploads/
+**/uploads/
+
+# Generated docs (keep .md and .pdf)
+docs/backend/*.html
