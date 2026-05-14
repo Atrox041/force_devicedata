@@ -28,6 +28,8 @@ export type DeviceOverviewSummary = {
   totalScrappedDevices: number;
   totalVendors: number;
   totalAccounts: number;
+  onlineServiceDevices: number;
+  notReturnedDevices: number;
   deviceStats: DeviceStat[];
 };
 
@@ -38,6 +40,11 @@ export type DeviceDistributionItem = {
 
 export type DeviceVendorItem = {
   vendor: string;
+  count: number;
+};
+
+export type DeviceOnlineStatusItem = {
+  onlineStatus: string;
   count: number;
 };
 

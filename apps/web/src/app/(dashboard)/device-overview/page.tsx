@@ -1,19 +1,37 @@
+import Link from "next/link";
 import { LayeredDeviceStack } from "@/components/device-overview/layered-device-stack";
 import {
   getDeviceOverviewDistribution,
+  getDeviceOverviewStatuses,
   getDeviceOverviewSummary,
   getDeviceOverviewTable,
   getDeviceOverviewVendors,
 } from "@/lib/api/device-overview";
 
-const filters = ["全部运营", "全部供应商", "全部计费方式", "在线状态", "账户编码"];
+type DeviceOverviewPageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
 
-export default async function DeviceOverviewPage() {
-  const [summary, distribution, vendors, table] = await Promise.all([
-    getDeviceOverviewSummary(),
-    getDeviceOverviewDistribution(),
-    getDeviceOverviewVendors(),
-    getDeviceOverviewTable({ page: 1, pageSize: 8 }),
+function getSearchParam(
+  value: string | string[] | undefined,
+): string | undefined {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+export default async function DeviceOverviewPage({
+  searchParams,
+}: DeviceOverviewPageProps) {
+  const activeOnlineStatus = getSearchParam(searchParams?.onlineStatus)?.trim();
+  const appliedFilters = activeOnlineStatus ? { onlineStatus: activeOnlineStatus } : undefined;
+
+  const [summary, distribution, vendors, table, statuses] = await Promise.all([
+    getDeviceOverviewSummary(appliedFilters),
+    getDeviceOverviewDistribution(appliedFilters),
+    getDeviceOverviewVendors(appliedFilters),
+    getDeviceOverviewTable({ ...appliedFilters, page: 1, pageSize: 8 }),
+    getDeviceOverviewStatuses(),
   ]);
 
   return (
@@ -30,16 +48,38 @@ export default async function DeviceOverviewPage() {
             <p className="mt-3 text-sm leading-7 text-slate-400">
               面向领导的设备状态入口，聚合 5G、10G、2G、1G 小主机和报废设备的在线情况，并提供供应商、运营和账户编码维度的筛选分析。
             </p>
+            <p className="mt-3 text-xs text-slate-500">
+              供应商 {summary.totalVendors} · 账户编码 {summary.totalAccounts}
+            </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {filters.map((label) => (
-              <button
-                key={label}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-slate-100"
-              >
-                {label}
-              </button>
-            ))}
+            <Link
+              href="/device-overview"
+              className={`rounded-full border px-4 py-2 text-sm transition ${
+                activeOnlineStatus
+                  ? "border-white/10 bg-white/5 text-slate-300 hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-slate-100"
+                  : "border-sky-400/30 bg-sky-400/10 text-slate-100"
+              }`}
+            >
+              全部状态
+            </Link>
+            {statuses.items.slice(0, 8).map((item) => {
+              const isActive = item.onlineStatus === activeOnlineStatus;
+              const href = `/device-overview?onlineStatus=${encodeURIComponent(item.onlineStatus)}`;
+              return (
+                <Link
+                  key={item.onlineStatus}
+                  href={href}
+                  className={`rounded-full border px-4 py-2 text-sm transition ${
+                    isActive
+                      ? "border-sky-400/30 bg-sky-400/10 text-slate-100"
+                      : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-slate-100"
+                  }`}
+                >
+                  {item.onlineStatus}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -53,25 +93,25 @@ export default async function DeviceOverviewPage() {
           <p className="mt-3 text-sm text-slate-400">包含在线、离线与异常状态</p>
         </article>
         <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
-          <p className="text-sm text-slate-400">在线设备</p>
+          <p className="text-sm text-slate-400">在线服役</p>
           <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
-            {summary.totalOnlineDevices}
+            {summary.onlineServiceDevices}
           </p>
-          <p className="mt-3 text-sm text-emerald-300">可按在线状态继续筛选</p>
+          <p className="mt-3 text-sm text-emerald-300">onlineStatus = 在线服役</p>
+        </article>
+        <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
+          <p className="text-sm text-slate-400">未回寄 / 待回库</p>
+          <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
+            {summary.notReturnedDevices}
+          </p>
+          <p className="mt-3 text-sm text-amber-300">包含 待设备回库 / 待回寄 等状态</p>
         </article>
         <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
           <p className="text-sm text-slate-400">报废设备</p>
           <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
             {summary.totalScrappedDevices}
           </p>
-          <p className="mt-3 text-sm text-amber-300">建议单独跟踪处理进度</p>
-        </article>
-        <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
-          <p className="text-sm text-slate-400">供应商 / 账户编码</p>
-          <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
-            {summary.totalVendors} / {summary.totalAccounts}
-          </p>
-          <p className="mt-3 text-sm text-violet-300">可继续 drill down 到明细</p>
+          <p className="mt-3 text-sm text-slate-400">用于设备处置跟踪</p>
         </article>
       </section>
 
@@ -83,10 +123,10 @@ export default async function DeviceOverviewPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="font-heading text-xl font-semibold text-slate-50">
-                  在线类型分布
+                  设备类型分布
                 </h3>
                 <p className="mt-1 text-sm text-slate-400">
-                  真实后端接入后，这里将直接映射接口返回的设备类型数量。
+                  当前为按设备类型汇总的总量分布，可结合顶部在线状态筛选。
                 </p>
               </div>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">

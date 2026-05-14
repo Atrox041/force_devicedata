@@ -24,5 +24,9 @@ export class DeviceOverviewController {
   table(@Query() query: Record<string, string | undefined>) {
     return this.service.getTable(query);
   }
-}
 
+  @Get("statuses")
+  statuses(@Query() query: Record<string, string | undefined>) {
+    return this.service.getStatuses(query);
+  }
+}

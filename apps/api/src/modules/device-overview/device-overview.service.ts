@@ -10,6 +10,11 @@ type Filters = {
   accountCode?: string;
 };
 
+type StatusItem = {
+  onlineStatus: string;
+  count: number;
+};
+
 function parseFilters(query: Record<string, string | undefined>): Filters {
   const operation = query.operation?.trim();
   const vendor = query.vendor?.trim();
@@ -121,12 +126,46 @@ export class DeviceOverviewService {
     `;
     const accountsRes = await this.db.query<{ accounts: string }>(accountsSql, params);
 
+    const statusSql = `
+      SELECT
+        online_status,
+        SUM(CASE WHEN device_type <> '报废设备' THEN device_count ELSE 0 END)::bigint AS count
+      FROM bi.device_inventory_fact
+      ${whereSql}
+      GROUP BY online_status
+    `;
+    const statusRes = await this.db.query<{ online_status: string | null; count: string }>(
+      statusSql,
+      params,
+    );
+    const statusItems: StatusItem[] = statusRes.rows
+      .map((r) => ({ onlineStatus: (r.online_status ?? "").trim(), count: toInt(r.count) }))
+      .filter((r) => r.onlineStatus);
+
+    const onlineServiceDevices = statusItems
+      .filter((r) => r.onlineStatus === "在线服役")
+      .reduce((sum, r) => sum + r.count, 0);
+
+    const notReturnedDevices = statusItems
+      .filter((r) => {
+        const s = r.onlineStatus;
+        return (
+          s.includes("待设备回库") ||
+          s.includes("待回库") ||
+          s.includes("未回寄") ||
+          s.includes("待回寄")
+        );
+      })
+      .reduce((sum, r) => sum + r.count, 0);
+
     return {
       totalDevices,
       totalOnlineDevices,
       totalScrappedDevices,
       totalVendors: toInt(vendorsRes.rows[0]?.vendors ?? 0),
       totalAccounts: toInt(accountsRes.rows[0]?.accounts ?? 0),
+      onlineServiceDevices,
+      notReturnedDevices,
       deviceStats,
     };
   }
@@ -238,5 +277,27 @@ export class DeviceOverviewService {
     }));
 
     return { total, items, page, pageSize };
+  }
+
+  async getStatuses(query: Record<string, string | undefined>) {
+    const filters = parseFilters(query);
+    const { whereSql, params } = buildWhere(filters);
+
+    const sql = `
+      SELECT
+        online_status,
+        SUM(CASE WHEN device_type <> '报废设备' THEN device_count ELSE 0 END)::bigint AS count
+      FROM bi.device_inventory_fact
+      ${whereSql}
+      GROUP BY online_status
+      ORDER BY count DESC
+    `;
+    const res = await this.db.query<{ online_status: string | null; count: string }>(sql, params);
+
+    return {
+      items: res.rows
+        .map((r) => ({ onlineStatus: (r.online_status ?? "").trim(), count: toInt(r.count) }))
+        .filter((r) => r.onlineStatus),
+    };
   }
 }

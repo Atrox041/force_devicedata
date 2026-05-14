@@ -5,6 +5,7 @@ import {
   DeviceOverviewFilters,
   DeviceOverviewSummary,
   DeviceOverviewTableResponse,
+  DeviceOnlineStatusItem,
   DeviceVendorItem,
 } from "@/types/device-overview";
 
@@ -17,6 +18,8 @@ const mockSummary: DeviceOverviewSummary = {
   totalScrappedDevices: 74,
   totalVendors: 6,
   totalAccounts: 14,
+  onlineServiceDevices: 1184,
+  notReturnedDevices: 142,
   deviceStats: [
     { type: "5G设备", count: 486, onlineCount: 452, utilization: 93 },
     { type: "10G设备", count: 332, onlineCount: 316, utilization: 95 },
@@ -96,6 +99,14 @@ const mockTable: DeviceOverviewTableResponse = {
   ],
 };
 
+const mockStatuses: DeviceOnlineStatusItem[] = [
+  { onlineStatus: "在线服役", count: 1184 },
+  { onlineStatus: "资源暂停待恢复", count: 216 },
+  { onlineStatus: "库存", count: 143 },
+  { onlineStatus: "资源下线待设备回库", count: 142 },
+  { onlineStatus: "旧设备回收", count: 74 },
+];
+
 function buildQuery(filters?: DeviceOverviewFilters) {
   const params = new URLSearchParams();
 
@@ -164,5 +175,12 @@ export async function getDeviceOverviewTable(filters?: DeviceOverviewFilters) {
   return fetchApi<DeviceOverviewTableResponse>(
     `/api/dashboard/device-overview/table${buildQuery(filters)}`,
     mockTable,
+  );
+}
+
+export async function getDeviceOverviewStatuses(filters?: DeviceOverviewFilters) {
+  return fetchApi<{ items: DeviceOnlineStatusItem[] }>(
+    `/api/dashboard/device-overview/statuses${buildQuery(filters)}`,
+    { items: mockStatuses },
   );
 }
