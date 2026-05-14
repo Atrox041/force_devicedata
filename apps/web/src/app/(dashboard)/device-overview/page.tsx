@@ -8,6 +8,8 @@ import {
   getDeviceOverviewVendors,
 } from "@/lib/api/device-overview";
 
+export const dynamic = "force-dynamic";
+
 type DeviceOverviewPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
@@ -51,6 +53,15 @@ export default async function DeviceOverviewPage({
             <p className="mt-3 text-xs text-slate-500">
               供应商 {summary.totalVendors} · 账户编码 {summary.totalAccounts}
             </p>
+            <p className="mt-2 text-xs text-slate-500">
+              当前状态：{activeOnlineStatus ? (
+                <span className="text-slate-200">{activeOnlineStatus}</span>
+              ) : (
+                <span className="text-slate-200">全部</span>
+              )}{" "}
+              · 设备数{" "}
+              <span className="text-slate-200">{summary.totalDevices}</span>
+            </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
@@ -76,7 +87,12 @@ export default async function DeviceOverviewPage({
                       : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-slate-100"
                   }`}
                 >
-                  {item.onlineStatus}
+                  <span className="inline-flex items-center gap-2">
+                    <span>{item.onlineStatus}</span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-slate-200">
+                      {item.count}
+                    </span>
+                  </span>
                 </Link>
               );
             })}
