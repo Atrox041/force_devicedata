@@ -95,6 +95,10 @@ export class DeviceOverviewService {
       return { type, count: v.total, onlineCount: type === "报废设备" ? 0 : v.online, utilization };
     });
 
+    const totalDevices = deviceStats
+      .filter((s) => s.type !== "报废设备")
+      .reduce((sum, s) => sum + s.count, 0);
+
     const totalOnlineDevices = deviceStats
       .filter((s) => s.type !== "报废设备")
       .reduce((sum, s) => sum + s.onlineCount, 0);
@@ -118,6 +122,7 @@ export class DeviceOverviewService {
     const accountsRes = await this.db.query<{ accounts: string }>(accountsSql, params);
 
     return {
+      totalDevices,
       totalOnlineDevices,
       totalScrappedDevices,
       totalVendors: toInt(vendorsRes.rows[0]?.vendors ?? 0),
@@ -133,7 +138,7 @@ export class DeviceOverviewService {
     const sql = `
       SELECT
         device_type,
-        SUM(CASE WHEN online_status ILIKE '%在线%' THEN device_count ELSE 0 END)::bigint AS count
+        SUM(device_count)::bigint AS count
       FROM bi.device_inventory_fact
       ${whereSql}
       GROUP BY device_type
@@ -152,7 +157,7 @@ export class DeviceOverviewService {
     const sql = `
       SELECT
         vendor,
-        SUM(CASE WHEN device_type <> '报废设备' AND online_status ILIKE '%在线%' THEN device_count ELSE 0 END)::bigint AS count
+        SUM(CASE WHEN device_type <> '报废设备' THEN device_count ELSE 0 END)::bigint AS count
       FROM bi.device_inventory_fact
       ${whereSql}
       GROUP BY vendor
@@ -235,4 +240,3 @@ export class DeviceOverviewService {
     return { total, items, page, pageSize };
   }
 }
-

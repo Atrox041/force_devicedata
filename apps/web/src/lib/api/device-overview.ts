@@ -12,6 +12,7 @@ const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
 const useMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA !== "false";
 
 const mockSummary: DeviceOverviewSummary = {
+  totalDevices: 1645,
   totalOnlineDevices: 1326,
   totalScrappedDevices: 74,
   totalVendors: 6,

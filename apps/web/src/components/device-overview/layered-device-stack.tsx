@@ -23,10 +23,10 @@ export function LayeredDeviceStack({ items }: LayeredDeviceStackProps) {
           Layered Live Cards
         </p>
         <h2 className="mt-3 font-heading text-2xl font-semibold text-slate-50">
-          在线设备层叠总览
+          设备层叠总览
         </h2>
         <p className="mt-3 text-sm leading-7 text-slate-400">
-          通过层叠卡片快速查看不同类型设备在线数量、总量和利用率，点击后续可继续钻取到明细。
+          通过层叠卡片快速查看不同类型设备总量、在线数量和利用率，点击后续可继续钻取到明细。
         </p>
       </div>
 
@@ -74,13 +74,13 @@ export function LayeredDeviceStack({ items }: LayeredDeviceStackProps) {
                     {item.type}
                   </div>
                   <p className="mt-4 font-heading text-3xl font-semibold text-slate-50">
-                    {item.onlineCount}
+                    {item.count}
                     <span className="ml-2 text-sm font-medium text-slate-400">
-                      在线台数
+                      总台数
                     </span>
                   </p>
                   <p className="mt-2 text-sm text-slate-400">
-                    总量 {item.count} 台 · 利用率 {item.utilization}%
+                    在线 {item.onlineCount} 台 · 利用率 {item.utilization}%
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-right">

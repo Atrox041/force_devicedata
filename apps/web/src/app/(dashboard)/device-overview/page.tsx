@@ -46,30 +46,30 @@ export default async function DeviceOverviewPage() {
 
       <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
         <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
-          <p className="text-sm text-slate-400">在线设备总数</p>
+          <p className="text-sm text-slate-400">设备总数</p>
+          <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
+            {summary.totalDevices}
+          </p>
+          <p className="mt-3 text-sm text-slate-400">包含在线、离线与异常状态</p>
+        </article>
+        <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
+          <p className="text-sm text-slate-400">在线设备</p>
           <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
             {summary.totalOnlineDevices}
           </p>
-          <p className="mt-3 text-sm text-emerald-300">较上周 +4.6%</p>
+          <p className="mt-3 text-sm text-emerald-300">可按在线状态继续筛选</p>
         </article>
         <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
           <p className="text-sm text-slate-400">报废设备</p>
           <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
             {summary.totalScrappedDevices}
           </p>
-          <p className="mt-3 text-sm text-amber-300">需重点关注处理效率</p>
+          <p className="mt-3 text-sm text-amber-300">建议单独跟踪处理进度</p>
         </article>
         <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
-          <p className="text-sm text-slate-400">供应商数量</p>
+          <p className="text-sm text-slate-400">供应商 / 账户编码</p>
           <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
-            {summary.totalVendors}
-          </p>
-          <p className="mt-3 text-sm text-sky-300">支持按供应商维度对比</p>
-        </article>
-        <article className="rounded-[20px] border border-white/10 bg-white/5 p-5">
-          <p className="text-sm text-slate-400">账户编码数</p>
-          <p className="mt-3 font-heading text-4xl font-semibold text-slate-50">
-            {summary.totalAccounts}
+            {summary.totalVendors} / {summary.totalAccounts}
           </p>
           <p className="mt-3 text-sm text-violet-300">可继续 drill down 到明细</p>
         </article>
@@ -105,7 +105,10 @@ export default async function DeviceOverviewPage() {
                     <div
                       className="h-2 rounded-full bg-gradient-to-r from-sky-400 to-violet-500"
                       style={{
-                        width: `${Math.max(8, (item.count / summary.totalOnlineDevices) * 100)}%`,
+                        width: `${Math.max(
+                          8,
+                          (item.count / Math.max(1, summary.totalDevices)) * 100,
+                        )}%`,
                       }}
                     />
                   </div>

@@ -113,6 +113,8 @@ export class ImportsService {
     const result = await this.db.withClient(async (client) => {
       await client.query("BEGIN");
       try {
+        await client.query("TRUNCATE bi.import_jobs CASCADE");
+
         const job = await client.query<{ id: string }>(
           `
             INSERT INTO bi.import_jobs (source_name, source_file_name, sheet_name, status, total_rows)
@@ -240,4 +242,3 @@ async function insertFacts(client: PoolClient, importJobId: string, row: ParsedR
     );
   }
 }
-

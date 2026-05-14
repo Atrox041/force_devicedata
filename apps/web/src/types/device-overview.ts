@@ -23,6 +23,7 @@ export type DeviceStat = {
 };
 
 export type DeviceOverviewSummary = {
+  totalDevices: number;
   totalOnlineDevices: number;
   totalScrappedDevices: number;
   totalVendors: number;
