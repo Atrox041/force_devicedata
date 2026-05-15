@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  DeviceFilterOptionsResponse,
   DeviceDistributionItem,
   DeviceOverviewFilters,
   DeviceOverviewSummary,
@@ -9,7 +10,10 @@ import {
   DeviceVendorItem,
 } from "@/types/device-overview";
 
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+  ?.trim()
+  .replace(/^['"`\s]+|['"`\s]+$/g, "")
+  .replace(/\/$/, "");
 const useMockData = process.env.NEXT_PUBLIC_USE_MOCK_DATA !== "false";
 
 const mockSummary: DeviceOverviewSummary = {
@@ -20,6 +24,16 @@ const mockSummary: DeviceOverviewSummary = {
   totalAccounts: 14,
   onlineServiceDevices: 1184,
   notReturnedDevices: 142,
+  appliedFilters: {
+    purchase: [],
+    operation: [],
+    onlineStatus: [],
+    deviceProvider: [],
+    vendor: [],
+    billingMode: [],
+    accountCode: [],
+    deviceTypes: ["5G设备", "10G设备", "2G设备", "1G小主机", "报废设备"],
+  },
   deviceStats: [
     { type: "5G设备", count: 486, onlineCount: 452, utilization: 93 },
     { type: "10G设备", count: 332, onlineCount: 316, utilization: 95 },
@@ -45,6 +59,7 @@ const mockTable: DeviceOverviewTableResponse = {
   total: 4,
   items: [
     {
+      purchase: "2024采购",
       operation: "华东运营",
       onlineStatus: "在线",
       provider: "自有",
@@ -58,6 +73,7 @@ const mockTable: DeviceOverviewTableResponse = {
       scrapped: 1,
     },
     {
+      purchase: "2024采购",
       operation: "华北运营",
       onlineStatus: "在线",
       provider: "托管",
@@ -71,6 +87,7 @@ const mockTable: DeviceOverviewTableResponse = {
       scrapped: 0,
     },
     {
+      purchase: "2023采购",
       operation: "华南运营",
       onlineStatus: "部分异常",
       provider: "自有",
@@ -84,6 +101,7 @@ const mockTable: DeviceOverviewTableResponse = {
       scrapped: 3,
     },
     {
+      purchase: "2022采购",
       operation: "西南运营",
       onlineStatus: "在线",
       provider: "合作方",
@@ -115,7 +133,13 @@ function buildQuery(filters?: DeviceOverviewFilters) {
   }
 
   Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
+    if (Array.isArray(value)) {
+      if (value.length) {
+        params.set(key, value.join(","));
+      }
+      return;
+    }
+    if (value !== undefined && value !== null) {
       params.set(key, String(value));
     }
   });
@@ -182,5 +206,23 @@ export async function getDeviceOverviewStatuses(filters?: DeviceOverviewFilters)
   return fetchApi<{ items: DeviceOnlineStatusItem[] }>(
     `/api/dashboard/device-overview/statuses${buildQuery(filters)}`,
     { items: mockStatuses },
+  );
+}
+
+export async function getDeviceOverviewFilterOptions(filters?: DeviceOverviewFilters) {
+  return fetchApi<DeviceFilterOptionsResponse>(
+    `/api/dashboard/device-overview/filter-options${buildQuery(filters)}`,
+    {
+      fields: {
+        purchase: { label: "采购", items: [] },
+        operation: { label: "运营", items: [] },
+        onlineStatus: { label: "设备在线情况", items: mockStatuses.map((item) => ({ ...item, value: item.onlineStatus, label: item.onlineStatus })) },
+        deviceProvider: { label: "设备提供", items: [] },
+        vendor: { label: "供应商", items: mockVendors.map((item) => ({ ...item, value: item.vendor, label: item.vendor })) },
+        billingMode: { label: "计费方式", items: [] },
+        accountCode: { label: "账户编码", items: [] },
+      },
+      deviceTypes: mockSummary.deviceStats.map((item) => ({ value: item.type, label: item.type })),
+    },
   );
 }

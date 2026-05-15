@@ -1,13 +1,14 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { DatabaseService } from "../database/database.service";
-import { DEVICE_TYPES } from "./device-overview.types";
+import {
+  DEVICE_TYPES,
+  FILTER_FIELD_CONFIG,
+  type DeviceFilterKey,
+  type DeviceType,
+} from "./device-overview.types";
 
-type Filters = {
-  operation?: string;
-  vendor?: string;
-  billingMode?: string;
-  onlineStatus?: string;
-  accountCode?: string;
+type Filters = Partial<Record<DeviceFilterKey, string[]>> & {
+  deviceTypes?: DeviceType[];
 };
 
 type StatusItem = {
@@ -16,19 +17,25 @@ type StatusItem = {
 };
 
 function parseFilters(query: Record<string, string | undefined>): Filters {
-  const operation = query.operation?.trim();
-  const vendor = query.vendor?.trim();
-  const billingMode = query.billingMode?.trim();
-  const onlineStatus = query.onlineStatus?.trim();
-  const accountCode = query.accountCode?.trim();
+  const parseList = (value?: string) =>
+    value
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter(Boolean) ?? [];
 
-  return {
-    operation: operation || undefined,
-    vendor: vendor || undefined,
-    billingMode: billingMode || undefined,
-    onlineStatus: onlineStatus || undefined,
-    accountCode: accountCode || undefined,
-  };
+  const filters: Filters = {};
+
+  (Object.keys(FILTER_FIELD_CONFIG) as DeviceFilterKey[]).forEach((key) => {
+    const values = parseList(query[key]);
+    if (values.length) filters[key] = values;
+  });
+
+  const deviceTypes = parseList(query.deviceTypes).filter((type): type is DeviceType =>
+    DEVICE_TYPES.includes(type as DeviceType),
+  );
+  if (deviceTypes.length) filters.deviceTypes = deviceTypes;
+
+  return filters;
 }
 
 function buildWhere(filters: Filters) {
@@ -40,11 +47,14 @@ function buildWhere(filters: Filters) {
     clauses.push(sql.replace("?", `$${params.length}`));
   };
 
-  if (filters.operation) push(`operation = ?`, filters.operation);
-  if (filters.vendor) push(`vendor = ?`, filters.vendor);
-  if (filters.billingMode) push(`billing_mode = ?`, filters.billingMode);
-  if (filters.onlineStatus) push(`online_status = ?`, filters.onlineStatus);
-  if (filters.accountCode) push(`account_code = ?`, filters.accountCode);
+  (Object.entries(FILTER_FIELD_CONFIG) as [DeviceFilterKey, { column: string }][]).forEach(
+    ([key, config]) => {
+      const values = filters[key];
+      if (values?.length) push(`${config.column} = ANY(?)`, values);
+    },
+  );
+
+  if (filters.deviceTypes?.length) push(`device_type = ANY(?)`, filters.deviceTypes);
 
   const whereSql = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   return { whereSql, params };
@@ -61,6 +71,11 @@ function toInt(value: unknown): number {
   return 0;
 }
 
+function toText(value: unknown): string {
+  if (value == null) return "";
+  return String(value).trim();
+}
+
 @Injectable()
 export class DeviceOverviewService {
   constructor(private readonly db: DatabaseService) {}
@@ -73,7 +88,7 @@ export class DeviceOverviewService {
       SELECT
         device_type,
         SUM(device_count)::bigint AS total_count,
-        SUM(CASE WHEN online_status ILIKE '%在线%' THEN device_count ELSE 0 END)::bigint AS online_count
+        SUM(CASE WHEN online_status = '在线服役' THEN device_count ELSE 0 END)::bigint AS online_count
       FROM bi.device_inventory_fact
       ${whereSql}
       GROUP BY device_type
@@ -167,6 +182,12 @@ export class DeviceOverviewService {
       onlineServiceDevices,
       notReturnedDevices,
       deviceStats,
+      appliedFilters: {
+        ...Object.fromEntries(
+          (Object.keys(FILTER_FIELD_CONFIG) as DeviceFilterKey[]).map((key) => [key, filters[key] ?? []]),
+        ),
+        deviceTypes: filters.deviceTypes ?? [],
+      },
     };
   }
 
@@ -223,7 +244,7 @@ export class DeviceOverviewService {
         SELECT 1
         FROM bi.device_inventory_fact
         ${whereSql}
-        GROUP BY operation, online_status, device_provider, vendor, billing_mode, account_code
+        GROUP BY purchase, operation, online_status, device_provider, vendor, billing_mode, account_code
       ) t
     `;
     const totalRes = await this.db.query<{ total: string }>(totalSql, params);
@@ -231,6 +252,7 @@ export class DeviceOverviewService {
 
     const dataSql = `
       SELECT
+        purchase,
         operation,
         online_status,
         device_provider,
@@ -244,11 +266,12 @@ export class DeviceOverviewService {
         SUM(CASE WHEN device_type = '报废设备' THEN device_count ELSE 0 END)::bigint AS scrapped
       FROM bi.device_inventory_fact
       ${whereSql}
-      GROUP BY operation, online_status, device_provider, vendor, billing_mode, account_code
-      ORDER BY vendor NULLS LAST, operation NULLS LAST, account_code NULLS LAST
+      GROUP BY purchase, operation, online_status, device_provider, vendor, billing_mode, account_code
+      ORDER BY purchase NULLS LAST, vendor NULLS LAST, operation NULLS LAST, account_code NULLS LAST
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
     const dataRes = await this.db.query<{
+      purchase: string | null;
       operation: string | null;
       online_status: string | null;
       device_provider: string | null;
@@ -263,6 +286,7 @@ export class DeviceOverviewService {
     }>(dataSql, [...params, pageSize, offset]);
 
     const items = dataRes.rows.map((r) => ({
+      purchase: r.purchase ?? "",
       operation: r.operation ?? "",
       onlineStatus: r.online_status ?? "",
       provider: r.device_provider ?? "",
@@ -298,6 +322,58 @@ export class DeviceOverviewService {
       items: res.rows
         .map((r) => ({ onlineStatus: (r.online_status ?? "").trim(), count: toInt(r.count) }))
         .filter((r) => r.onlineStatus),
+    };
+  }
+
+  async getFilterOptions(query: Record<string, string | undefined>) {
+    const filters = parseFilters(query);
+    const field = query.field?.trim() as DeviceFilterKey | undefined;
+
+    if (field) {
+      return this.getSingleFilterOptions(field, filters);
+    }
+
+    const entries = await Promise.all(
+      (Object.keys(FILTER_FIELD_CONFIG) as DeviceFilterKey[]).map(async (key) => [
+        key,
+        await this.getSingleFilterOptions(key, filters),
+      ]),
+    );
+
+    return {
+      fields: Object.fromEntries(entries),
+      deviceTypes: DEVICE_TYPES.map((type) => ({ value: type, label: type })),
+    };
+  }
+
+  private async getSingleFilterOptions(field: DeviceFilterKey, filters: Filters) {
+    const scopedFilters: Filters = {
+      ...filters,
+      [field]: undefined,
+    };
+    const { whereSql, params } = buildWhere(scopedFilters);
+    const config = FILTER_FIELD_CONFIG[field];
+
+    const sql = `
+      SELECT
+        ${config.column} AS value,
+        SUM(CASE WHEN device_type <> '报废设备' THEN device_count ELSE 0 END)::bigint AS count
+      FROM bi.device_inventory_fact
+      ${whereSql}
+      GROUP BY ${config.column}
+      HAVING COALESCE(${config.column}, '') <> ''
+      ORDER BY count DESC, ${config.column} ASC
+      LIMIT 200
+    `;
+
+    const res = await this.db.query<{ value: string | null; count: string }>(sql, params);
+    return {
+      label: config.label,
+      items: res.rows.map((row) => ({
+        value: toText(row.value),
+        label: toText(row.value),
+        count: toInt(row.count),
+      })),
     };
   }
 }

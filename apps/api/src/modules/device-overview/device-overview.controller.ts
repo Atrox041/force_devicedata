@@ -29,4 +29,9 @@ export class DeviceOverviewController {
   statuses(@Query() query: Record<string, string | undefined>) {
     return this.service.getStatuses(query);
   }
+
+  @Get("filter-options")
+  filterOptions(@Query() query: Record<string, string | undefined>) {
+    return this.service.getFilterOptions(query);
+  }
 }

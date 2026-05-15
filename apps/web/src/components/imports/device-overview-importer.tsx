@@ -26,8 +26,19 @@ type ImportResult = {
 };
 
 function getApiBaseUrl() {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
-  return baseUrl || "";
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+    ?.trim()
+    .replace(/^['"`\s]+|['"`\s]+$/g, "")
+    .replace(/\/$/, "");
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:3001`;
+  }
+
+  return "";
 }
 
 export function DeviceOverviewImporter() {
@@ -100,6 +111,9 @@ export function DeviceOverviewImporter() {
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-400">
               上传设备总览 Excel 后自动入库，并在设备在线总览里展示真实数据。导出可直接下载当前筛选维度的汇总明细表。
+              未显式配置时，前端会按当前访问域名自动请求
+              <span className="mx-1 text-slate-200">:3001</span>
+              后端。
             </p>
           </div>
 
@@ -165,7 +179,13 @@ export function DeviceOverviewImporter() {
 
             {!canCallApi ? (
               <div className="rounded-[18px] border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
-                当前未配置 NEXT_PUBLIC_API_BASE_URL。服务器部署时，请在前端
+                当前未显式配置 NEXT_PUBLIC_API_BASE_URL，前端会优先尝试使用当前访问域名自动拼接
+                <span className="mx-1 text-slate-50">:3001</span>。
+                如果你的部署不是前端
+                <span className="mx-1 text-slate-50">3000</span>
+                、后端
+                <span className="mx-1 text-slate-50">3001</span>
+                这种结构，再在前端
                 <span className="mx-1 text-slate-50">.env.local</span>
                 设置为你的后端地址，例如
                 <span className="mx-1 text-slate-50">http://101.42.167.97:3001</span>。
@@ -232,4 +252,3 @@ export function DeviceOverviewImporter() {
     </div>
   );
 }
-

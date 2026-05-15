@@ -6,11 +6,14 @@ export type DeviceTypeKey =
   | "报废设备";
 
 export type DeviceOverviewFilters = {
-  operation?: string;
-  vendor?: string;
-  billingMode?: string;
-  onlineStatus?: string;
-  accountCode?: string;
+  purchase?: string[];
+  operation?: string[];
+  onlineStatus?: string[];
+  deviceProvider?: string[];
+  vendor?: string[];
+  billingMode?: string[];
+  accountCode?: string[];
+  deviceTypes?: DeviceTypeKey[];
   page?: number;
   pageSize?: number;
 };
@@ -31,6 +34,7 @@ export type DeviceOverviewSummary = {
   onlineServiceDevices: number;
   notReturnedDevices: number;
   deviceStats: DeviceStat[];
+  appliedFilters: Record<string, string[]>;
 };
 
 export type DeviceDistributionItem = {
@@ -48,7 +52,24 @@ export type DeviceOnlineStatusItem = {
   count: number;
 };
 
+export type DeviceFilterOptionItem = {
+  value: string;
+  label: string;
+  count: number;
+};
+
+export type DeviceFilterOptionGroup = {
+  label: string;
+  items: DeviceFilterOptionItem[];
+};
+
+export type DeviceFilterOptionsResponse = {
+  fields: Record<string, DeviceFilterOptionGroup>;
+  deviceTypes: Array<{ value: DeviceTypeKey; label: string }>;
+};
+
 export type DeviceOverviewTableItem = {
+  purchase: string;
   operation: string;
   onlineStatus: string;
   provider: string;
